@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<!-- saved from url=(0052)file:///C:/Users/Tomass/Desktop/App%20Unificada.html -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <title>App de Impresiones 3D - Corregida</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0; padding: 2rem; color: #333;
+    }
+    nav {
+      display: flex;
+      background-color: #343a40;
+      margin: -2rem -2rem 2rem;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    nav button {
+      flex: 1;
+      padding: 1rem;
+      font-size: 1.1rem;
+      background: none;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    nav button.active, nav button:hover {
+      background-color: #495057;
+    }
+    section {
+      display: none;
+    }
+    section.active {
+      display: block;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+    }
+    input[type="number"], input[type="text"], select {
+      padding: 0.5rem;
+      width: 100%;
+      max-width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1rem;
+      box-sizing: border-box;
+      transition: border-color 0.3s;
+    }
+    input[type="number"]:focus, input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 5px #007bff;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.7rem 1.5rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #resultado, #resumenGastos {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #ffffff;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 700px;
+    }
+    .pedido-item {
+      background: #fff;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .pedido-info {
+      flex: 1 1 60%;
+      font-size: 0.95rem;
+    }
+    .pedido-controls button {
+      margin-left: 0.5rem;
+      font-size: 1rem;
+    }
+    .graficos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: space-around;
+      max-width: 900px;
+      margin-top: 2rem;
+    }
+    .graficos canvas {
+      flex: 1 1 300px;
+      max-width: 300px;
+      height: 250px !important;
+      cursor: pointer;
+      transition: box-shadow 0.3s;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    .graficos canvas:hover {
+      box-shadow: 0 0 15px rgba(0,123,255,0.7);
+    }
+
+    /* Modal general */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+      z-index: 9999;
+      overflow-y: auto;
+      transition: opacity 0.3s ease;
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      animation: modalIn 0.3s ease forwards;
+    }
+    @keyframes modalIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-close {
+      position: absolute;
+      top: 10px; right: 10px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: color 0.3s;
+    }
+    .modal-close:hover {
+      color: #007bff;
+    }
+    #modalDetalle .modal-content {
+      max-width: 500px;
+    }
+    #modalGrafico .modal-content {
+      max-width: 800px;
+      max-height: 80vh;
+    }
+    #modalPedidos .modal-content {
+      max-width: 700px;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <button id="tabCalc" class="active" onclick="mostrarTab(&#39;calc&#39;)">🖨️ Calculadora</button>
+  <button id="tabResumen" onclick="mostrarTab(&#39;resumen&#39;)" class="">📋 Resumen</button>
+  <button id="tabCalendarioEntregas" onclick="mostrarTab('calendarioEntregas')">📅 Entregas</button>
+
+</nav>
+
+<section id="calc" class="active" aria-label="Calculadora de precios">
+  <h1>🖨️ Calculadora de Precios - Impresiones 3D</h1>
+
+  <label>📛 Nombre del pedido:
+    <input type="text" id="nombrePedido" placeholder="Ej: Caja personalizada" maxlength="50">
+  </label>
+
+  <label>💰 Costo promedio x Hora ($ARS):
+    <input type="number" id="costoHora" value="1300" min="0">
+  </label>
+  <label>⏱️ Tiempo de impresión (horas):
+    <input type="number" id="tiempoHoras" value="0" step="0.1" min="0" oninput="actualizarMinutos()">
+  </label>
+  <label>🕒 Tiempo de impresión (minutos):
+    <input type="number" id="tiempoMinutos" value="0" readonly="">
+  </label>
+  <label>🎯 Costo de material x kg ($ARS):
+    <input type="number" id="costoKg" value="15000" min="0">
+  </label>
+  <label>⚖️ Gramos gastados:
+    <input type="number" id="gramos" value="0" min="0">
+  </label>
+  <label>📈 Multiplicador de material (%):
+    <input type="number" id="multiplicadorMaterial" value="20" min="0">
+  </label>
+  <label>🔧 Desgaste ($ por minuto):
+    <input type="number" id="desgaste" value="5" min="0">
+  </label>
+  <label>✨ Post-procesado (%):
+    <input type="number" id="postProcesado" value="30" min="0">
+    <input type="checkbox" id="usarPostProcesado" checked=""> Usar post-procesado
+  </label>
+  <label>⚡ Gasto de luz (por kWh en $ARS):
+    <input type="number" id="costoLuz" value="360" min="0">
+  </label>
+
+  <button onclick="calcular()">🧮 Calcular</button>
+  <button onclick="guardarPedido()">💾 Guardar pedido</button>
+
+  <div id="resultado" role="region" aria-live="polite">
+      <h2>💵 Precio Calculado</h2>
+      <p><strong>Precio base:</strong> $3650.00</p>
+      <p><strong>Precio con post-procesado:</strong> $4745.00</p>
+    </div>
+  <div id="resumenGastos" role="region" aria-live="polite">
+      <h3>📊 Resumen de Gastos</h3>
+      <p>Costo Mano de Obra: $2600.00</p>
+      <p>Costo Material: $378.00</p>
+      <p>Desgaste: $600.00</p>
+      <p>Costo Luz: $72.00</p>
+      <p>Post-Procesado: 30%</p>
+    </div>
+</section>
+
+<section id="resumen" aria-label="Resumen de trabajos" class="">
+  <h1>📋 Resumen de Trabajos</h1>
+  <button style="margin-bottom:1rem" onclick="mostrarHistorial()">📜 Ver historial de entregas</button>
+  <button style="margin-bottom:1rem" onclick="abrirModalPedidos()">Ver pedidos guardados</button>
+  <div class="graficos" aria-label="Gráficos de resumen">
+    <canvas id="graficoFacturacion" role="img" aria-label="Gráfico de facturación"></canvas>
+    <canvas id="graficoEstados" role="img" aria-label="Gráfico de estados"></canvas>
+    <canvas id="graficoDiario" role="img" aria-label="Gráfico de ganancias diarias"></canvas>
+  </div>
+</section>
+
+<!-- Modal Pedidos -->
+<div id="modalPedidos" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalPedidosTitle" tabindex="-1">
+  <div class="modal-content">
+    <button class="modal-close" id="modalPedidosCloseBtn" aria-label="Cerrar ventana de pedidos">×</button>
+    <h2 id="modalPedidosTitle">📦 Pedidos Guardados</h2>
+    <div id="listaResumen"></div>
+  </div>
+</div>
+
+
+<!-- Modal Historial -->
+<div id="modalHistorial" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalHistorialTitle" tabindex="-1">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalHistorial')">×</button>
+    <h2 id="modalHistorialTitle">📜 Historial de Entregas</h2>
+    <div style="margin-bottom: 1rem;"><button onclick="exportarHistorialPDF()" style="background:#007bff;color:white;padding:0.5rem 1rem;border:none;border-radius:5px;">📄 Exportar historial a PDF</button></div>
+    <div id="listaHistorial"></div>
+    <p id="totalHistorial" style="margin-top:1rem;font-weight:bold"></p>
+  </div>
+</div>
+
+
+<!-- Modal Detalle Pedido -->
+<div id="modalDetalle" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalDetalleTitle" tabindex="-1">
+  <div class="modal-content">
+    <button class="modal-close" id="modalDetalleCloseBtn" aria-label="Cerrar ventana de detalle">×</button>
+    <h2 id="modalDetalleTitle">📝 Detalle del Pedido</h2>
+    <div id="detalleContenido"></div>
+    <button onclick="exportarPDF()">📄 Exportar a PDF</button>
+  </div>
+</div>
+
+<!-- Modal Grafico Ampliado -->
+<div id="modalGrafico" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalGraficoTitle" tabindex="-1">
+  <div class="modal-content">
+    <button class="modal-close" id="modalGraficoCloseBtn" aria-label="Cerrar ventana de gráfico">×</button>
+    <h2 id="modalGraficoTitle">📊 Gráfico Ampliado</h2>
+    <canvas id="graficoGrande" style="max-height:70vh;"></canvas>
+  </div>
+</div>
+
+<script>
+  // Variables globales de gráficos y pedidos
+  let pedidos = JSON.parse(localStorage.getItem("pedidos") || "[]");
+  let graficoFacturacion, graficoEstados, graficoDiario, graficoGrandeInstancia;
+
+  // Mostrar pestaña
+function mostrarTab(tabId) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).classList.add('active');
+
+  if (tabId === 'resumen') actualizarResumen();
+  if (tabId === 'calendarioEntregas') mostrarCalendario();
+}
+  // Actualizar minutos basado en horas
+  function actualizarMinutos() {
+    const horas = parseFloat(document.getElementById('tiempoHoras').value) || 0;
+    document.getElementById('tiempoMinutos').value = Math.round(horas * 60);
+  }
+
+  // Calcular precios y mostrar resultados
+  function calcular() {
+    const costoHora = Number(document.getElementById('costoHora').value) || 0;
+    const tiempoHoras = Number(document.getElementById('tiempoHoras').value) || 0;
+    const tiempoMinutos = tiempoHoras * 60;
+    const costoKg = Number(document.getElementById('costoKg').value) || 0;
+    const gramos = Number(document.getElementById('gramos').value) || 0;
+    const multiplicadorMaterial = Number(document.getElementById('multiplicadorMaterial').value) || 0;
+    const desgaste = Number(document.getElementById('desgaste').value) || 0;
+    const postProcesadoPct = Number(document.getElementById('postProcesado').value) || 0;
+    const usarPostProcesado = document.getElementById('usarPostProcesado').checked;
+    const costoLuz = Number(document.getElementById('costoLuz').value) || 0;
+
+    const materialReal = gramos * (1 + multiplicadorMaterial / 100);
+    const costoMaterial = (materialReal / 1000) * costoKg;
+    const desgasteTotal = desgaste * tiempoMinutos;
+    const kWhTotal = 0.1 * tiempoHoras;
+    const costoLuzTotal = kWhTotal * costoLuz;
+    const costoManoObra = costoHora * tiempoHoras;
+    const precioBase = costoManoObra + costoMaterial + desgasteTotal + costoLuzTotal;
+    const precioConPost = usarPostProcesado ? precioBase * (1 + postProcesadoPct / 100) : precioBase;
+
+    document.getElementById('resultado').innerHTML = `
+      <h2>💵 Precio Calculado</h2>
+      <p><strong>Precio base:</strong> $${precioBase.toFixed(2)}</p>
+      <p><strong>Precio con post-procesado:</strong> $${precioConPost.toFixed(2)}</p>
+    `;
+
+    document.getElementById('resumenGastos').innerHTML = `
+      <h3>📊 Resumen de Gastos</h3>
+      <p>Costo Mano de Obra: $${costoManoObra.toFixed(2)}</p>
+      <p>Costo Material: $${costoMaterial.toFixed(2)}</p>
+      <p>Desgaste: $${desgasteTotal.toFixed(2)}</p>
+      <p>Costo Luz: $${costoLuzTotal.toFixed(2)}</p>
+      <p>Post-Procesado: ${usarPostProcesado ? postProcesadoPct + '%' : 'No aplicado'}</p>
+    `;
+
+    return {
+      precioBase,
+      precioConPost,
+      costoManoObra,
+      costoMaterial,
+      desgasteTotal,
+      costoLuzTotal,
+      usarPostProcesado,
+      postProcesadoPct
+    };
+  }
+
+  // Guardar pedido con nombre válido
+  function guardarPedido() {
+    const nombre = document.getElementById('nombrePedido').value.trim();
+    if (!nombre) {
+      alert("Por favor, ingresa un nombre para el pedido.");
+      return;
+    }
+    const calc = calcular();
+    if (calc.precioBase === 0) {
+      alert("Primero realiza un cálculo válido.");
+      return;
+    }
+
+    const fecha = new Date();
+    const pedido = {
+      id: Date.now(),
+      nombre,
+      fecha: fecha.toISOString(),
+      fechaEntrega: document.querySelector('input[type="date"]')?.value || '',
+      costoHora: Number(document.getElementById('costoHora').value),
+      tiempoHoras: Number(document.getElementById('tiempoHoras').value),
+      costoKg: Number(document.getElementById('costoKg').value),
+      gramos: Number(document.getElementById('gramos').value),
+      multiplicadorMaterial: Number(document.getElementById('multiplicadorMaterial').value),
+      desgaste: Number(document.getElementById('desgaste').value),
+      postProcesadoPct: Number(document.getElementById('postProcesado').value),
+      usarPostProcesado: document.getElementById('usarPostProcesado').checked,
+      costoLuz: Number(document.getElementById('costoLuz').value),
+      precioBase: calc.precioBase,
+      precioConPost: calc.precioConPost,
+      estado: "En Proceso"
+    };
+    pedidos.push(pedido);
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    alert("Pedido guardado con éxito.");
+    mostrarCalendario();
+    document.getElementById('nombrePedido').value = '';
+  }
+
+  // Abrir modal pedidos guardados
+  function abrirModalPedidos() {
+    actualizarListaPedidos();
+    abrirModal('modalPedidos');
+  }
+
+  // Actualizar lista de pedidos en modal
+  function actualizarListaPedidos() {
+    const lista = document.getElementById('listaResumen');
+    lista.innerHTML = '';
+    if (pedidos.length === 0) {
+      lista.innerHTML = "<p>No hay pedidos guardados.</p>";
+      return;
+    }
+    pedidos.forEach(p => {
+      const div = document.createElement('div');
+      div.classList.add('pedido-item');
+
+      const fecha = new Date(p.fecha);
+      const fechaStr = fecha.toLocaleDateString() + " " + fecha.toLocaleTimeString();
+
+      div.innerHTML = `
+  <div class="pedido-info">
+    <strong>${p.nombre}</strong><br>
+    <small>ID: ${p.id} | Fecha: ${fechaStr}</small><br>
+    <strong>Precio:</strong> $${(p.usarPostProcesado ? p.precioConPost : p.precioBase).toFixed(2)}
+    <br><label>📌 Estado:
+      <select onchange="cambiarEstadoPedido(${p.id}, this.value)">
+        <option value="Terminado" ${p.estado === 'Terminado' ? 'selected' : ''}>Terminado</option>
+        <option value="En Proceso" ${p.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
+        <option value="Post Procesado" ${p.estado === 'Post Procesado' ? 'selected' : ''}>Post Procesado</option>
+        <option value="No Empezado" ${p.estado === 'No Empezado' ? 'selected' : ''}>No Empezado</option>
+      </select>
+    </label>
+    <label>📅 Fecha de entrega:
+      <input type="date" onchange="cambiarFechaEntrega(${p.id}, this.value)" value="${p.fechaEntrega || ''}">
+    </label>
+  </div>
+  <div class="pedido-controls">
+    <button aria-label="Ver detalle del pedido ${p.nombre}" class="btn-detalle" onclick="abrirDetalle(${p.id})">Detalle del pedido</button><button style="background-color:green;color:white" onclick="marcarEntregado(${p.id})">✔ Entregado</button>
+    <button aria-label="Eliminar pedido ${p.nombre}" onclick="borrarPedido(${p.id})">🗑️ Borrar</button>
+  </div>
+`;
+      lista.appendChild(div);
+    });
+  }
+
+  // Borrar pedido por id
+  function borrarPedido(id) {
+    if(confirm("¿Seguro que quieres eliminar este pedido?")) {
+      pedidos = pedidos.filter(p => p.id !== id);
+      localStorage.setItem("pedidos", JSON.stringify(pedidos));
+      actualizarListaPedidos();
+      actualizarResumen();
+    }
+  }
+
+  // Abrir detalle de pedido en modal
+  function abrirDetalle(id) {
+    const pedido = pedidos.find(p => p.id === id);
+    if(!pedido) return;
+
+    const fecha = new Date(pedido.fecha);
+    const fechaStr = fecha.toLocaleDateString() + " " + fecha.toLocaleTimeString();
+
+    let detalleHTML = `
+      <p><strong>Nombre:</strong> ${pedido.nombre}</p>
+      <p><strong>Fecha:</strong> ${fechaStr}</p>
+      <p><strong>Costo hora:</strong> $${pedido.costoHora}</p>
+      <p><strong>Tiempo de impresión (horas):</strong> ${pedido.tiempoHoras}</p>
+      <p><strong>Costo material por kg:</strong> $${pedido.costoKg}</p>
+      <p><strong>Gramos gastados:</strong> ${pedido.gramos}</p>
+      <p><strong>Multiplicador de material (%):</strong> ${pedido.multiplicadorMaterial}</p>
+      <p><strong>Desgaste ($/min):</strong> $${pedido.desgaste}</p>
+      <p><strong>Post-procesado (%):</strong> ${pedido.postProcesadoPct}</p>
+      <p><strong>Usar post-procesado:</strong> ${pedido.usarPostProcesado ? 'Sí' : 'No'}</p>
+      <p><strong>Costo de luz (por kWh):</strong> $${pedido.costoLuz}</p>
+      <hr />
+      <p><strong>Precio base:</strong> $${pedido.precioBase.toFixed(2)}</p>
+      <p><strong>Precio con post-procesado:</strong> $${pedido.precioConPost.toFixed(2)}</p>
+    `;
+
+    document.getElementById('detalleContenido').innerHTML = detalleHTML;
+    abrirModal('modalDetalle');
+
+    // Guardar el pedido actual para exportar PDF
+    window.pedidoParaPDF = pedido;
+  }
+
+  // Exportar detalle a PDF
+  // Exportar detalle a PDF (modificado según solicitud)
+  async function exportarPDF() {
+    if (!window.pedidoParaPDF) return alert("No hay pedido cargado para exportar.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const p = window.pedidoParaPDF;
+    const fechaEntrega = p.fechaEntrega ? p.fechaEntrega : 'No definida';
+    const precioFinal = p.usarPostProcesado ? p.precioConPost : p.precioBase;
+
+    doc.setFontSize(18);
+    doc.text("Detalle de Pedido", 14, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Nombre: ${p.nombre}`, 14, 30);
+    doc.text(`Fecha de entrega: ${fechaEntrega}`, 14, 38);
+    doc.text(`Post-procesado: ${p.usarPostProcesado ? 'Sí' : 'No'}`, 14, 46);
+    doc.text(`Precio final: $${precioFinal.toFixed(2)}`, 14, 54);
+
+    doc.save(`pedido_${p.nombre.replace(/\s+/g, '_')}_${p.id}.pdf`);
+  }
+
+  // Abrir modal
+  function abrirModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.classList.add('active');
+    modal.focus();
+  }
+  // Cerrar modal
+  function cerrarModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.classList.remove('active');
+  }
+
+  // Eventos cerrar modales (botones)
+  document.getElementById('modalPedidosCloseBtn').addEventListener('click', () => cerrarModal('modalPedidos'));
+  document.getElementById('modalDetalleCloseBtn').addEventListener('click', () => cerrarModal('modalDetalle'));
+  document.getElementById('modalGraficoCloseBtn').addEventListener('click', () => cerrarModal('modalGrafico'));
+
+  // Cerrar modal con ESC
+  document.addEventListener('keydown', e => {
+    if (e.key === "Escape") {
+      ['modalPedidos','modalDetalle','modalGrafico'].forEach(id => cerrarModal(id));
+    }
+  });
+
+  // Actualizar resumen (lista y gráficos)
+  function actualizarResumen() {
+    actualizarListaPedidos();
+    actualizarGraficos();
+  }
+
+  // Actualizar gráficos con Chart.js
+  function actualizarGraficos() {
+    // Datos para facturación
+    const facturacionData = {};
+    const estadosData = { 'Terminado': 0, 'En Proceso': 0, 'Post Procesado': 0, 'No Empezado': 0 };
+
+    // Para gráfico diario, acumulado por día (fecha YYYY-MM-DD)
+    const gananciasPorDia = {};
+
+    // Como en esta versión el estado no está editable, vamos a usar 'En Proceso' como estado default.
+    pedidos.forEach(p => {
+      const nombre = p.nombre;
+      const total = p.usarPostProcesado ? p.precioConPost : p.precioBase;
+      facturacionData[nombre] = (facturacionData[nombre] || 0) + total;
+
+      // Estado para demo (puedes agregar estado editable si quieres)
+      // Aquí asignamos "En Proceso" y "Post Procesado" basado en postProcesado
+     if (estadosData[p.estado] !== undefined) {
+  estadosData[p.estado]++;
+    }
+      // Fecha
+      const dia = p.fecha.substring(0, 10);
+      gananciasPorDia[dia] = (gananciasPorDia[dia] || 0) + total;
+    });
+
+    // Eliminar estados sin valor para limpiar gráficos
+    for (const key in estadosData) {
+      if (estadosData[key] === 0) delete estadosData[key];
+    }
+
+    // Preparar contextos
+    const ctxFact = document.getElementById('graficoFacturacion').getContext('2d');
+    const ctxEstado = document.getElementById('graficoEstados').getContext('2d');
+    const ctxDiario = document.getElementById('graficoDiario').getContext('2d');
+
+    // Destruir si ya existen
+    if (graficoFacturacion) graficoFacturacion.destroy();
+    if (graficoEstados) graficoEstados.destroy();
+    if (graficoDiario) graficoDiario.destroy();
+
+    // Facturación (barras)
+    graficoFacturacion = new Chart(ctxFact, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(facturacionData),
+        datasets: [{
+          label: 'Total Facturado ($)',
+          data: Object.values(facturacionData),
+          backgroundColor: '#4CAF50',
+          borderRadius: 4,
+          maxBarThickness: 40
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Total por Pedido' }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 }
+          }
+        }
+      }
+    });
+
+    // Estados (pie)
+    const coloresEstados = {
+      "Terminado": "#4CAF50",
+      "En Proceso": "#FFC107",
+      "Post Procesado": "#2196F3",
+      "No Empezado": "#F44336"
+    };
+    graficoEstados = new Chart(ctxEstado, {
+      type: 'pie',
+      data: {
+        labels: Object.keys(estadosData),
+        datasets: [{
+          data: Object.values(estadosData),
+          backgroundColor: Object.keys(estadosData).map(k => coloresEstados[k] || '#ccc')
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: 'Estado de Pedidos' },
+          legend: { position: 'bottom' }
+        }
+      }
+    });
+
+    // Ganancias diarias (line)
+    // Ordenar fechas
+    const diasOrdenados = Object.keys(gananciasPorDia).sort();
+    const gananciasOrdenadas = diasOrdenados.map(d => gananciasPorDia[d]);
+    graficoDiario = new Chart(ctxDiario, {
+      type: 'line',
+      data: {
+        labels: diasOrdenados,
+        datasets: [{
+          label: 'Ganancias Diarias ($)',
+          data: gananciasOrdenadas,
+          borderColor: '#007bff',
+          backgroundColor: 'rgba(0,123,255,0.3)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: 'Ganancias por Día' },
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    // Añadir evento click para ampliar gráficos
+    ['graficoFacturacion', 'graficoEstados', 'graficoDiario'].forEach(id => {
+      const canvas = document.getElementById(id);
+      canvas.onclick = () => ampliarGrafico(id);
+    });
+  }
+
+  // Ampliar gráfico en modal
+  function ampliarGrafico(idGrafico) {
+    const modal = document.getElementById('modalGrafico');
+    const ctxGrande = document.getElementById('graficoGrande').getContext('2d');
+
+    // Destruir gráfico grande previo si existe
+    if (graficoGrandeInstancia) graficoGrandeInstancia.destroy();
+
+    // Copiar configuración desde gráfico pequeño
+    let chartOriginal;
+    switch(idGrafico) {
+      case 'graficoFacturacion': chartOriginal = graficoFacturacion; break;
+      case 'graficoEstados': chartOriginal = graficoEstados; break;
+      case 'graficoDiario': chartOriginal = graficoDiario; break;
+      default: chartOriginal = null;
+    }
+    if (!chartOriginal) return;
+
+    // Clonar configuración para gráfico grande
+    const config = JSON.parse(JSON.stringify(chartOriginal.config));
+
+    // Cambiar tamaño para gráfico grande
+    config.options.plugins.title.text += " (Ampliado)";
+    config.options.plugins.legend.position = 'top';
+
+    graficoGrandeInstancia = new Chart(ctxGrande, config);
+
+    abrirModal('modalGrafico');
+  }
+
+  
+function cambiarEstadoPedido(id, nuevoEstado) {
+  const index = pedidos.findIndex(p => p.id === id);
+  if (index !== -1) {
+    pedidos[index].estado = nuevoEstado;
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    actualizarResumen();
+    mostrarCalendario();
+  }
+}
+
+  
+function cambiarFechaEntrega(id, nuevaFecha) {
+  const index = pedidos.findIndex(p => p.id === id);
+  if (index !== -1) {
+    pedidos[index].fechaEntrega = nuevaFecha;
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    actualizarResumen();
+    mostrarCalendario();
+  }
+}
+
+
+  
+
+function exportarHistorialPDF() {
+  if (!historial || historial.length === 0) {
+    alert("No hay entregas para exportar.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 20;
+
+  doc.setFontSize(16);
+  doc.text("Historial de Pedidos Entregados", 14, y);
+  y += 10;
+  doc.setFontSize(12);
+
+  historial.forEach((p, i) => {
+    const fecha = new Date(p.fecha).toLocaleDateString();
+    const precio = p.usarPostProcesado ? p.precioConPost : p.precioBase;
+
+    const lines = [
+      `• ${p.nombre} (${fecha})`,
+      `  Precio: $${precio.toFixed(2)}`,
+      `  Post-procesado: ${p.usarPostProcesado ? 'Sí' : 'No'}`,
+      `  Fecha de entrega: ${p.fechaEntrega || 'No definida'}`
+    ];
+
+    lines.forEach(line => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, 14, y);
+      y += 7;
+    });
+
+    y += 3;
+  });
+
+  doc.save("historial_entregas.pdf");
+}
+
+
+
+function deshacerEntrega(id) {
+  const index = historial.findIndex(p => p.id === id);
+  if (index !== -1) {
+    const pedido = historial.splice(index, 1)[0];
+    pedidos.push(pedido);
+    localStorage.setItem("historial", JSON.stringify(historial));
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    mostrarHistorial();
+    actualizarResumen();
+    mostrarCalendario();
+  }
+}
+
+
+// Historial separado para entregados
+
+function eliminarDeHistorial(id) {
+  if (confirm("¿Seguro que deseas borrar este pedido del historial?")) {
+    historial = historial.filter(p => p.id !== id);
+    localStorage.setItem("historial", JSON.stringify(historial));
+    mostrarHistorial();
+  }
+}
+
+let historial = JSON.parse(localStorage.getItem("historial") || "[]");
+
+function marcarEntregado(id) {
+  const index = pedidos.findIndex(p => p.id === id);
+  if (index !== -1) {
+    const entregado = pedidos.splice(index, 1)[0];
+    historial.push(entregado);
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    localStorage.setItem("historial", JSON.stringify(historial));
+    actualizarListaPedidos();
+    actualizarResumen();
+    mostrarCalendario();
+  }
+}
+
+
+  
+function mostrarHistorial() {
+  const lista = document.getElementById('listaHistorial');
+  const totalLabel = document.getElementById('totalHistorial');
+  historial = JSON.parse(localStorage.getItem("historial") || "[]");
+
+  lista.innerHTML = '';
+  let total = 0;
+
+  if (historial.length === 0) {
+    lista.innerHTML = "<p>No hay pedidos entregados aún.</p>";
+  } else {
+    historial.forEach(p => {
+      const div = document.createElement('div');
+      div.classList.add('pedido-item');
+      const fecha = new Date(p.fecha);
+      const fechaStr = fecha.toLocaleDateString() + " " + fecha.toLocaleTimeString();
+      const precio = p.usarPostProcesado ? p.precioConPost : p.precioBase;
+      total += precio;
+
+      div.innerHTML = `
+        <div class="pedido-info">
+          <strong>${p.nombre}</strong><br>
+          <small>Fecha: ${fechaStr}</small><br>
+          <strong>Precio:</strong> $${precio.toFixed(2)}
+        </div>
+        <div class="pedido-controls">
+          <button onclick="eliminarDeHistorial(${p.id})" style="background-color:red;color:white">🗑️ Eliminar</button>
+        </div>
+      `;
+      lista.appendChild(div);
+    });
+  }
+
+  totalLabel.textContent = "💵 Total facturado (entregado): $" + total.toFixed(2);
+  abrirModal('modalHistorial');
+}
+
+
+// Inicialización
+  actualizarMinutos();
+  actualizarResumen();
+
+</script>
+
+
+
+
+
+<!-- Calendario de Entregas -->
+<section id="calendarioEntregas" aria-label="Calendario de Entregas" class="">
+  <h1>📅 Calendario de Entregas</h1>
+  <div id="contenedorCalendario"></div>
+</section>
+
+<script>
+  function mostrarCalendario() {
+    const contenedor = document.getElementById("contenedorCalendario");
+    contenedor.innerHTML = "";
+
+    if (pedidos.length === 0) {
+      contenedor.innerHTML = "<p>No hay pedidos para mostrar en el calendario.</p>";
+      return;
+    }
+
+    const calendario = document.createElement("div");
+    calendario.style.display = "grid";
+    calendario.style.gridTemplateColumns = "repeat(auto-fill, minmax(250px, 1fr))";
+    calendario.style.gap = "1rem";
+
+    pedidos.forEach(p => {
+      if (!p.fechaEntrega) return;
+
+      const tarjeta = document.createElement("div");
+      tarjeta.style.background = "#fff";
+      tarjeta.style.border = "1px solid #ccc";
+      tarjeta.style.borderRadius = "10px";
+      tarjeta.style.padding = "1rem";
+      tarjeta.style.boxShadow = "0 0 5px rgba(0,0,0,0.1)";
+      tarjeta.innerHTML = `
+        <strong>📦 ${p.nombre}</strong><br>
+        <small>Entrega: ${p.fechaEntrega}</small><br>
+        <strong>Precio:</strong> $${(p.usarPostProcesado ? p.precioConPost : p.precioBase).toFixed(2)}<br>
+        <button onclick="marcarEntregado(${p.id})" style="margin-top:0.5rem;background-color:green;color:white;border:none;padding:0.5rem 1rem;border-radius:5px;cursor:pointer;">✔ Entregado</button>
+      `;
+      calendario.appendChild(tarjeta);
+    });
+
+    contenedor.appendChild(calendario);
+  }
+
+  // Mostrar calendario al cargar
+  document.addEventListener("DOMContentLoaded", mostrarCalendario);
+</script>
+
+</body></html>
